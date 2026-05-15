@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Line to WhatsApp Sticker Tool</title>
+</head>
+<body>
+<h2>Download</h2>
+<input id="id" placeholder="Line Pack ID" />
+<button onclick="download()">Download Line Package</button>
+
+<h2>Generate</h2>
+<button onclick="generate()">Generate</button>
+
+<script>
+    async function download() {
+        const packId = document.getElementById('id').value.trim();
+        if (!packId) {
+            alert('Please enter Line Pack ID');
+            return;
+        }
+        const res = await fetch('/api/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ packId })
+        });
+
+        const data = await res.json();
+        alert(JSON.stringify(data));
+    }
+
+    async function generate() {
+        const packId = document.getElementById('id').value.trim();
+        if (!packId) {
+            alert('Missing Line Pack ID');
+            return;
+        }
+        const res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ packId })
+        });
+        const data = await res.json();
+        alert(JSON.stringify(data));
+    }
+</script>
+</body>
+</html>

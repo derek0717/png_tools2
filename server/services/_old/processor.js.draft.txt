@@ -1,0 +1,60 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const AdmZip = require('adm-zip');
+
+const MAXWEBPSIZE = 500 * 1024;
+
+/* Helper Functions */
+// TODO: Helper functions go here
+
+/* Main Function */
+exports.generate = async (stickerId, title, author) => {
+  const baseDir = path.join('data', stickerId);
+  const animDir = path.join(baseDir, 'animation@2x');
+  const outputDir = path.join(baseDir, 'output');
+
+  /* webP Generation Logic Here
+  ==INFO==
+  Line sticker pack unzipped folder structure inside data/${stickerId}/
+  [
+  /data/36314/
+  /data/36314/animation@2x/
+  /data/36314/animation@2x/803437281@2x.png
+  /data/36314/animation@2x/803437282@2x.png
+  /data/36314/animation@2x/803437283@2x.png
+  /data/36314/803437281@2x.png
+  /data/36314/803437281_key@2x.png
+  /data/36314/803437282@2x.png
+  /data/36314/803437282_key@2x.png
+  /data/36314/803437283@2x.png
+  /data/36314/803437283_key@2x.png
+  /data/36314/pack.zip
+  /data/36314/productInfo.meta
+  /data/36314/tab_off@2x.png
+  /data/36314/tab_on@2x.png
+  ]
+
+  ==TASK==
+  TODO: Task
+  * 1. For each animated png .png file in /animation@2x, convert each to an animated webP .webp file in the outputDir using webp (I already installed it using brew install webp)
+  * 2. Loop the generation of each .webp file with different quality. You may want to start the the highest quality of 80% and iterate down. The final file's size must be smaller than 500KB
+  * 3. The webP file must have the same frame delay and loop data as the original animated png
+  * */
+
+
+  fs.writeFileSync(path.join(outputDir, 'title.txt'), title);
+  fs.writeFileSync(path.join(outputDir, 'author.txt'), author);
+  const traySrc = path.join(baseDir, 'tab_on@2x.png');
+  const trayOut = path.join(outputDir, 'tray.png');
+  execSync(`sips -z 96 96 "${traySrc}" --out "${trayOut}"`);
+
+  const zip = new AdmZip();
+  fs.readdirSync(outputDir).forEach(f => {
+    zip.addLocalFile(path.join(outputDir, f));
+  });
+  const outFile = path.join(baseDir, `${stickerId}.wastickers`);
+  zip.writeZip(outFile);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  return outFile;
+};

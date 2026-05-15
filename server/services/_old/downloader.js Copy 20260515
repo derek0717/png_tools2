@@ -1,0 +1,49 @@
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch');
+const AdmZip = require('adm-zip');
+
+exports.download = async (packId)=>{
+  const lineAnimatedPackRemotePath = `https://stickershop.line-scdn.net/stickershop/v1/product/${packId}/iphone/stickerpack@2x.zip`;
+  const lineEmojiPackRemotePath  = `https://stickershop.line-scdn.net/sticonshop/v1/${packId}/sticon/iphone/package_animation.zip`;
+  const lineStaticPackRemotePath = `https://stickershop.line-scdn.net/stickershop/v1/product/${packId}/iphone/stickers@2x.zip`;
+
+  let type = "animated";
+
+  const root = path.join(__dirname,'../../data',packId);
+  const zipPath = path.join(root,'pack.zip');
+
+  fs.mkdirSync(root,{recursive:true});
+
+  const res = await fetch(lineAnimatedPackRemotePath);
+  await new Promise(r=>res.body.pipe(fs.createWriteStream(zipPath)).on('finish',r));
+
+    let fileSizeInBytes = (fs.statSync(zipPath)).size;
+    if(fileSizeInBytes<11111){
+        // static
+        console.log(`NOT_FOUND: Animation package with id ${packId} not found, downloading emoji package`);
+        type = "emoji";
+        fs.unlinkSync(zipPath);
+
+        const res2 = await fetch(lineEmojiPackRemotePath);
+        await new Promise(r=>res2.body.pipe(fs.createWriteStream(zipPath)).on('finish',r));
+    }
+
+  fileSizeInBytes = (fs.statSync(zipPath)).size;
+  if(fileSizeInBytes<11111){
+      // static
+      console.log(`NOT_FOUND: Animation package with id ${packId} not found, downloading static package`);
+      type = "static";
+      fs.unlinkSync(zipPath);
+
+      const res2 = await fetch(lineStaticPackRemotePath);
+      await new Promise(r=>res2.body.pipe(fs.createWriteStream(zipPath)).on('finish',r));
+  }
+
+  const zip = new AdmZip(zipPath);
+  zip.extractAllTo(root,true);
+
+  // return path
+  // const animPath = path.join(root);
+  return {packId, type};
+};

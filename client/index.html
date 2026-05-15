@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Png Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 24px 28px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            width: 320px;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            background: #007aff;
+            color: white;
+        }
+
+        button:disabled,
+        #downloadBtn:disabled,
+        #generateBtn:disabled
+        {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #555;
+            margin-top: 10px;
+            min-height: 18px;
+        }
+
+        #downloadArea span{
+            font-size: 13px;
+            margin-right:5px;
+            color: #007aff;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .loading {
+            color: #007aff;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Png Tool</h2>
+
+    <input id="id" placeholder="Line Pack ID" />
+
+    <button id="downloadBtn" onclick="download()" disabled="disabled">Download</button>
+    <button id="generateBtn" onclick="generate()" disabled="disabled">Package</button>
+
+    <div id="status" class="status"><center><svg fill="#000000" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20,11.5 L20,7.5 C20,5.56700338 18.4329966,4 16.5,4 L7.5,4 C5.56700338,4 4,5.56700338 4,7.5 L4,16.5 C4,18.4329966 5.56700338,20 7.5,20 L12.5,20 C13.3284271,20 14,19.3284271 14,18.5 L14,16.5 C14,14.5670034 15.5670034,13 17.5,13 L18.5,13 C19.3284271,13 20,12.3284271 20,11.5 Z M19.9266247,13.5532532 C19.522053,13.8348821 19.0303092,14 18.5,14 L17.5,14 C16.1192881,14 15,15.1192881 15,16.5 L15,18.5 C15,18.9222858 14.8952995,19.3201175 14.7104416,19.668952 C17.4490113,18.8255402 19.5186665,16.4560464 19.9266247,13.5532532 L19.9266247,13.5532532 Z M7.5,3 L16.5,3 C18.9852814,3 21,5.01471863 21,7.5 L21,12.5 C21,17.1944204 17.1944204,21 12.5,21 L7.5,21 C5.01471863,21 3,18.9852814 3,16.5 L3,7.5 C3,5.01471863 5.01471863,3 7.5,3 Z"/>
+    </svg></center></div>
+
+    <div id="downloadArea"></div>
+</div>
+
+<script>
+    const idInput = document.getElementById('id');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('status');
+
+    idInput.addEventListener('input',()=>{
+        downloadBtn.disabled = !(idInput.value.trim());
+        generateBtn.disabled = true;
+    })
+
+    function setLoading(isLoading) {
+        idInput.disabled = isLoading;
+        downloadBtn.disabled = isLoading;
+        generateBtn.disabled = isLoading;
+
+        if (isLoading) {
+            statusEl.classList.add('loading');
+        } else {
+            statusEl.classList.remove('loading');
+        }
+    }
+
+    function setStatus(text, type='') {
+        statusEl.className = 'status';   // reset base
+        if (type) statusEl.classList.add(type);
+        statusEl.textContent = text;
+    }
+
+    function getPackId() {
+        const val = idInput.value.trim();
+        if (!val) {
+            setStatus('Please enter Line Pack ID', 'error');
+            return null;
+        }
+        return val;
+    }
+
+    async function download() {
+        const packId = getPackId();
+        if (!packId) return;
+
+        setStatus('Downloading...', 'loading');
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/download', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ packId })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setStatus('Download complete', 'success');
+            } else {
+                setStatus(JSON.stringify(data), 'error');
+            }
+
+        } catch (e) {
+            console.error(e);
+            setStatus('Network error', 'error');
+        }
+
+        setLoading(false);
+    }
+
+    async function generate() {
+        const packId = getPackId();
+        if (!packId) return;
+
+        setStatus('Generating stickers...', 'loading');
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/package', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ packId })
+            });
+
+            const data = await res.json();
+
+            if (data.result) {
+                data.result.forEach(f => {
+                    const span = document.createElement('span');
+                    span.onclick = () => downloadWastickers(`${f.id}`, `${f.name}`);
+                    span.innerText = `${f.name}`;
+                    document.getElementById('downloadArea').appendChild(span);
+                });
+
+                setStatus('Generation complete', 'success');
+            } else {
+                setStatus(JSON.stringify(data), 'error');
+            }
+
+        } catch (e) {
+            console.error(e);
+            setStatus('Network error', 'error');
+        }
+
+        setLoading(false);
+    }
+
+    function downloadWastickers(id, name) {
+        fetch(`/api/wastickers?id=${encodeURIComponent(id)}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Download failed');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+
+                document.body.appendChild(a);
+                a.click();
+
+                a.remove();
+                URL.revokeObjectURL(url);
+            })
+            .catch((e)=>{
+                console.error(e);
+                setStatus('Download error', 'error');
+            });
+    }
+</script>
+
+</body>
+</html>

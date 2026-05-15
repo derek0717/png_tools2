@@ -1,0 +1,184 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const AdmZip = require('adm-zip');
+
+const MAXWEBPSIZE = 500 * 1024;
+
+/* ================= Helpers ================= */
+
+function run(cmd) {
+  execSync(cmd, { stdio: 'ignore' });
+}
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+/* ---- Frame encode ---- */
+
+function encodeFrameToWebP(inputPng, outputWebp, quality) {
+  run(`cwebp -quiet -q ${quality} "${inputPng}" -o "${outputWebp}"`);
+}
+
+/* ---- Assemble animation ---- */
+
+function assembleAnimatedWebP(frames, delays, outputFile, loop = 0) {
+  if (!frames.length) throw new Error('No frames');
+
+  let cmd = `webpmux -frame "${frames[0]}" +${delays[0]}+0+0+1`;
+
+  for (let i = 1; i < frames.length; i++) {
+    cmd += ` -frame "${frames[i]}" +${delays[i]}+0+0+1`;
+  }
+
+  cmd += ` -loop ${loop} -o "${outputFile}"`;
+
+  run(cmd);
+}
+
+/* ---- Extract frames + delays ---- */
+
+function extractFrames(input, tmpDir) {
+  const framePattern = path.join(tmpDir, 'frame_%04d.png');
+
+  // Extract frames
+  run(`ffmpeg -y -i "${input}" "${framePattern}"`);
+
+  // Extract delays (fallback = 100ms)
+  const probe = execSync(
+      `ffprobe -v error -select_streams v:0 -show_entries frame=pkt_duration_time -of csv=p=0 "${input}"`
+  ).toString();
+
+  const delays = probe
+      .split('\n')
+      .filter(Boolean)
+      .map(v => {
+        const num = parseFloat(v);
+        return isNaN(num) ? 100 : Math.max(1, Math.round(num * 1000));
+      });
+
+  return delays;
+}
+
+/* ---- Core encoder ---- */
+
+function encodeAnimatedWebP(frameDir, outputFile, delays) {
+  const files = fs.readdirSync(frameDir)
+      .filter(f => f.endsWith('.png'))
+      .sort();
+
+  const qualityLevels = [90, 80, 70, 60, 50, 40];
+  const frameSkips = [1, 2, 3];
+
+  for (const skip of frameSkips) {
+
+    let selected = files.filter((_, i) => i % skip === 0);
+    if (!selected.length) selected = [files[0]];
+
+    for (const q of qualityLevels) {
+
+      const tempWebps = [];
+
+      // encode frames
+      selected.forEach((file, i) => {
+        const input = path.join(frameDir, file);
+        const out = path.join(frameDir, `tmp_${i}.webp`);
+
+        encodeFrameToWebP(input, out, q);
+        tempWebps.push(out);
+      });
+
+      // recompute delays
+      const adjusted = [];
+      for (let i = 0; i < selected.length; i++) {
+        let start = i * skip;
+        let sum = 0;
+
+        for (let j = 0; j < skip; j++) {
+          if (delays[start + j]) sum += delays[start + j];
+        }
+
+        adjusted.push(sum || 100);
+      }
+
+      try {
+        assembleAnimatedWebP(tempWebps, adjusted, outputFile);
+
+        if (fs.existsSync(outputFile)) {
+          const size = fs.statSync(outputFile).size;
+
+          if (size <= MAXWEBPSIZE) {
+            tempWebps.forEach(f => fs.unlinkSync(f));
+            return outputFile;
+          }
+        }
+
+      } catch (e) {}
+
+      tempWebps.forEach(f => {
+        if (fs.existsSync(f)) fs.unlinkSync(f);
+      });
+    }
+  }
+
+  throw new Error('Failed to compress under 500KB');
+}
+
+/* ================= Main ================= */
+
+exports.generate = async (stickerId, title, author) => {
+  const baseDir = path.join('data', String(stickerId));
+  const animDir = path.join(baseDir, 'animation@2x');
+  const outputDir = path.join(baseDir, 'output');
+  const tmpDir = path.join(baseDir, 'tmp');
+
+  ensureDir(outputDir);
+  ensureDir(tmpDir);
+
+  const files = fs.readdirSync(animDir).filter(f => f.endsWith('.png'));
+
+  for (const file of files) {
+    const input = path.join(animDir, file);
+
+    // create per-sticker temp folder
+    const stickerTmp = path.join(tmpDir, file.replace('.png', ''));
+    ensureDir(stickerTmp);
+
+    // extract frames + delays
+    const delays = extractFrames(input, stickerTmp);
+
+    const outputName = file.replace('.png', '.webp');
+    const output = path.join(outputDir, outputName);
+
+    encodeAnimatedWebP(stickerTmp, output, delays);
+
+    // cleanup sticker tmp
+    fs.rmSync(stickerTmp, { recursive: true, force: true });
+  }
+
+  // metadata
+  fs.writeFileSync(path.join(outputDir, 'title.txt'), title);
+  fs.writeFileSync(path.join(outputDir, 'author.txt'), author);
+
+  // tray icon
+  const traySrc = path.join(baseDir, 'tab_on@2x.png');
+  const trayOut = path.join(outputDir, 'tray.png');
+  run(`sips -z 96 96 "${traySrc}" --out "${trayOut}"`);
+
+  // zip pack
+  const zip = new AdmZip();
+  fs.readdirSync(outputDir).forEach(f => {
+    zip.addLocalFile(path.join(outputDir, f));
+  });
+
+  const outFile = path.join(baseDir, `${stickerId}.wastickers`);
+  zip.writeZip(outFile);
+
+  // cleanup
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+
+  return outFile;
+};
