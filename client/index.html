@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Png Tool</title>
+    <title>PNG Tool</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -50,12 +50,85 @@
             color: white;
         }
 
-        button:disabled,
-        #downloadBtn:disabled,
-        #generateBtn:disabled
-        {
+        button:disabled {
             background: #ccc;
             cursor: not-allowed;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0 10px;
+            padding: 0 10px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background-color 0.4s ease;
+        }
+
+        .label {
+            font-size: 11px;
+            color: #888;
+            margin-top: 6px;
+            font-weight: 500;
+            transition: color 0.4s ease;
+        }
+
+        .line {
+            flex-grow: 1;
+            height: 3px;
+            background: #e0e0e0;
+            margin: 0 4px;
+            position: relative;
+            top: -10px;
+            z-index: 1;
+        }
+
+        .line.completed {
+            background: #34c759;
+            transition: background-color 0.4s ease;
+        }
+
+        .step.active .circle {
+            background: #007aff;
+            box-shadow: 0 0 8px rgba(0, 122, 255, 0.4);
+        }
+
+        .step.active .label {
+            color: #007aff;
+            font-weight: bold;
+        }
+
+        .step.completed .circle {
+            background: #34c759;
+        }
+
+        .step.completed .label {
+            color: #34c759;
+        }
+
+        .line.completed {
+            background: #34c759;
+            transition: background-color 0.4s ease;
         }
 
         .status {
@@ -63,61 +136,132 @@
             color: #555;
             margin-top: 10px;
             min-height: 18px;
+            text-align: center;
         }
-
-        #downloadArea span{
+        #downloadArea {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        #downloadArea span {
             font-size: 13px;
-            margin-right:5px;
             color: #007aff;
             text-decoration: underline;
             cursor: pointer;
         }
-
-        .loading {
-            color: #007aff;
+        #downloadArea span.previous {
+            color: #888;
         }
 
-        .success {
-            color: green;
-        }
+        .loading { color: #007aff; }
+        .success { color: green; }
+        .error { color: red; }
 
-        .error {
-            color: red;
+        .adv{
+            margin-top: 15px;
+            .adv-toggle {
+                font-size: 11px;
+                text-align: right;
+                color: #888;
+                cursor: pointer;
+                text-decoration: underline;
+                user-select: none;
+            }
+
+            .adv-panel {
+                display: none;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                margin-top: 10px;
+                border-top: 1px dashed #ccc;
+                padding-top: 12px;
+            }
+
+            .adv-panel button {
+                background: #5856d6;
+                font-size: 12px;
+                padding: 8px;
+            }
+            .adv-panel button:disabled{
+                background: #ccc;
+            }
         }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Png Tool</h2>
+    <h2>PNG Tool</h2>
 
     <input id="id" placeholder="Line Pack ID" />
 
-    <button id="downloadBtn" onclick="download()" disabled="disabled">Download</button>
-    <button id="generateBtn" onclick="generate()" disabled="disabled">Package</button>
+    <button id="generateBtn" onclick="doPack()" disabled="disabled">Generate</button>
 
-    <div id="status" class="status"><center><svg fill="#000000" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20,11.5 L20,7.5 C20,5.56700338 18.4329966,4 16.5,4 L7.5,4 C5.56700338,4 4,5.56700338 4,7.5 L4,16.5 C4,18.4329966 5.56700338,20 7.5,20 L12.5,20 C13.3284271,20 14,19.3284271 14,18.5 L14,16.5 C14,14.5670034 15.5670034,13 17.5,13 L18.5,13 C19.3284271,13 20,12.3284271 20,11.5 Z M19.9266247,13.5532532 C19.522053,13.8348821 19.0303092,14 18.5,14 L17.5,14 C16.1192881,14 15,15.1192881 15,16.5 L15,18.5 C15,18.9222858 14.8952995,19.3201175 14.7104416,19.668952 C17.4490113,18.8255402 19.5186665,16.4560464 19.9266247,13.5532532 L19.9266247,13.5532532 Z M7.5,3 L16.5,3 C18.9852814,3 21,5.01471863 21,7.5 L21,12.5 C21,17.1944204 17.1944204,21 12.5,21 L7.5,21 C5.01471863,21 3,18.9852814 3,16.5 L3,7.5 C3,5.01471863 5.01471863,3 7.5,3 Z"/>
-    </svg></center></div>
+    <div class="progress-container">
+        <div class="step" id="step1">
+            <div class="circle">1</div>
+            <div class="label">Download</div>
+        </div>
+        <div class="line" id="line1"></div>
+        <div class="step" id="step2">
+            <div class="circle">2</div>
+            <div class="label">Package</div>
+        </div>
+        <div class="line" id="line2"></div>
+        <div class="step" id="step3">
+            <div class="circle">✓</div>
+            <div class="label">Complete</div>
+        </div>
+    </div>
 
+    <div id="status" class="status"></div>
     <div id="downloadArea"></div>
+    <div class="adv">
+        <div class="adv-panel" id="advPanel">
+            <button id="advDownloadBtn" onclick="manualDownload()" disabled="disabled">Download</button>
+            <button id="advPackageBtn" onclick="manualPackage()" disabled="disabled">Package</button>
+        </div>
+        <div class="adv-toggle" id="advToggle">Advanced</div>
+    </div>
 </div>
 
 <script>
     const idInput = document.getElementById('id');
-    const downloadBtn = document.getElementById('downloadBtn');
     const generateBtn = document.getElementById('generateBtn');
     const statusEl = document.getElementById('status');
 
-    idInput.addEventListener('input',()=>{
-        downloadBtn.disabled = !(idInput.value.trim());
-        generateBtn.disabled = true;
-    })
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const step3 = document.getElementById('step3');
+    const line1 = document.getElementById('line1');
+    const line2 = document.getElementById('line2');
+
+    const advToggle = document.getElementById('advToggle');
+    const advPanel = document.getElementById('advPanel');
+    const advDownloadBtn = document.getElementById('advDownloadBtn');
+    const advPackageBtn = document.getElementById('advPackageBtn');
+
+    let advancedModeActive = false;
+    advToggle.onclick = () => {
+        advancedModeActive = !advancedModeActive;
+        advPanel.style.display = advancedModeActive ? 'grid' : 'none';
+        advToggle.innerText = advancedModeActive? 'Hide' : 'Advanced';
+    };
+
+    // Input event listener
+    idInput.addEventListener('input', () => {
+        const hasValue = !!idInput.value.trim();
+        generateBtn.disabled = !hasValue;
+        advDownloadBtn.disabled = !hasValue;
+        advPackageBtn.disabled = true;
+        resetProgress();
+    });
 
     function setLoading(isLoading) {
         idInput.disabled = isLoading;
-        downloadBtn.disabled = isLoading;
         generateBtn.disabled = isLoading;
+        advDownloadBtn.disabled = isLoading;
+        advPackageBtn.disabled = isLoading;
 
         if (isLoading) {
             statusEl.classList.add('loading');
@@ -127,9 +271,21 @@
     }
 
     function setStatus(text, type='') {
-        statusEl.className = 'status';   // reset base
+        statusEl.className = 'status';
         if (type) statusEl.classList.add(type);
         statusEl.textContent = text;
+    }
+
+    function resetProgress() {
+        step1.className = 'step';
+        step2.className = 'step';
+        step3.className = 'step';
+        line1.className = 'line';
+        line2.className = 'line';
+        statusEl.textContent = '';
+        document.querySelectorAll('#downloadArea span').forEach(span => {
+            span.classList.add('previous');
+        });
     }
 
     function getPackId() {
@@ -140,71 +296,114 @@
         }
         return val;
     }
-
-    async function download() {
+    
+    // Main
+    async function doPack() {
         const packId = getPackId();
         if (!packId) return;
 
-        setStatus('Downloading...', 'loading');
+        resetProgress();
         setLoading(true);
 
         try {
-            const res = await fetch('/api/download', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ packId })
+            // Download
+            const downloadSuccess = await downloadFromLine(packId);
+            if (!downloadSuccess) throw new Error('Download stage stopped processing.');
+
+            // Package
+            const packageSuccess = await packageSticker(packId);
+            if (!packageSuccess) throw new Error('Packaging stage stopped processing.');
+
+            // Complete
+            line2.classList.add('completed');
+            step3.className = 'step completed';
+            setStatus('', 'success');
+
+        } catch (error) {
+            console.error(error);
+            if (step1.classList.contains('active')) step1.classList.remove('active');
+            if (step2.classList.contains('active')) step2.classList.remove('active');
+            if (step3.classList.contains('active')) step3.classList.remove('active');
+        } finally {
+            setLoading(false);
+        }
+    }
+    async function downloadFromLine(packId) {
+        step1.className = 'step active';
+        setStatus('', 'loading');
+
+        const res = await fetch('/api/download', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ packId })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            step1.className = 'step completed';
+            line1.classList.add('completed');
+            setStatus('', 'success');
+            return true;
+        } else {
+            setStatus(data.message || JSON.stringify(data), 'error');
+            return false;
+        }
+    }
+    async function packageSticker(packId) {
+        step2.className = 'step active';
+        setStatus('', 'loading');
+
+        const res = await fetch('/api/package', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ packId })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.result) {
+            data.result.forEach(f => {
+                const span = document.createElement('span');
+                span.onclick = () => downloadWastickers(`${f.id}`, `${f.name}`);
+                span.innerText = `${f.name}`;
+                document.getElementById('downloadArea').appendChild(span);
             });
 
-            const data = await res.json();
-
-            if (res.ok) {
-                setStatus('Download complete', 'success');
-            } else {
-                setStatus(JSON.stringify(data), 'error');
-            }
-
-        } catch (e) {
-            console.error(e);
-            setStatus('Network error', 'error');
+            step2.className = 'step completed';
+            return true;
+        } else {
+            setStatus(data.message || JSON.stringify(data), 'error');
+            return false;
         }
-
-        setLoading(false);
     }
 
-    async function generate() {
+    // Advanced
+    async function manualDownload() {
         const packId = getPackId();
         if (!packId) return;
 
-        setStatus('Generating stickers...', 'loading');
+        resetProgress();
         setLoading(true);
 
-        try {
-            const res = await fetch('/api/package', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ packId })
-            });
+        const success = await downloadFromLine(packId);
+        setLoading(false);
 
-            const data = await res.json();
-
-            if (data.result) {
-                data.result.forEach(f => {
-                    const span = document.createElement('span');
-                    span.onclick = () => downloadWastickers(`${f.id}`, `${f.name}`);
-                    span.innerText = `${f.name}`;
-                    document.getElementById('downloadArea').appendChild(span);
-                });
-
-                setStatus('Generation complete', 'success');
-            } else {
-                setStatus(JSON.stringify(data), 'error');
-            }
-
-        } catch (e) {
-            console.error(e);
-            setStatus('Network error', 'error');
+        if (success) {
+            advPackageBtn.disabled = false;
         }
+    }
 
+    async function manualPackage() {
+        const packId = getPackId();
+        if (!packId) return;
+
+        setLoading(true);
+        const success = await packageSticker(packId);
+
+        if (success) {
+            line2.classList.add('completed');
+            step3.className = 'step completed';
+            setStatus('', 'success');
+        }
         setLoading(false);
     }
 
@@ -216,23 +415,19 @@
             })
             .then(blob => {
                 const url = URL.createObjectURL(blob);
-
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = name;
-
                 document.body.appendChild(a);
                 a.click();
-
                 a.remove();
                 URL.revokeObjectURL(url);
             })
-            .catch((e)=>{
+            .catch((e) => {
                 console.error(e);
                 setStatus('Download error', 'error');
             });
     }
 </script>
-
 </body>
 </html>
